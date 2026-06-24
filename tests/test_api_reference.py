@@ -19,6 +19,11 @@ def _import_search_api_op():
     return search_api_op
 
 
+def _names(entries):
+    """Method names from signature strings like 'setName(name) -> Boolean'."""
+    return {e.split("(", 1)[0] for e in entries}
+
+
 # ── Exact match ──────────────────────────────────────────────────────────
 
 def test_search_class_exact_match():
@@ -109,7 +114,7 @@ def test_exclude_base_methods():
     # Default: base methods excluded
     result = search("CoilCoolingFourPipeBeam")
     cls = result["classes"][0]
-    all_methods = cls["setters"] + cls["getters"] + cls["other"]
+    all_methods = _names(cls["setters"] + cls["getters"] + cls["other"])
     base_methods = {"clone", "remove", "name"}
     for bm in base_methods:
         assert bm not in all_methods, (
@@ -119,7 +124,7 @@ def test_exclude_base_methods():
     # With include_base=True: they appear
     result_incl = search("CoilCoolingFourPipeBeam", include_base=True)
     cls_incl = result_incl["classes"][0]
-    all_incl = cls_incl["setters"] + cls_incl["getters"] + cls_incl["other"]
+    all_incl = _names(cls_incl["setters"] + cls_incl["getters"] + cls_incl["other"])
     # At least "name" should appear (every ModelObject has it)
     assert "name" in all_incl, "'name' should appear when include_base=True"
 
@@ -147,7 +152,7 @@ def test_validates_real_methods_exist():
     search = _import_search_api_op()
     result = search("CoilCoolingFourPipeBeam", include_base=True)
     cls = result["classes"][0]
-    all_methods = set(cls["setters"] + cls["getters"] + cls["other"])
+    all_methods = _names(cls["setters"] + cls["getters"] + cls["other"])
 
     # Known GOOD methods (from Ruby/Python API)
     good_methods = {"setName", "setBeamRatedCoolingCapacityperBeamLength"}
@@ -172,7 +177,7 @@ def test_ruby_python_method_parity_spot_check():
     search = _import_search_api_op()
     result = search("CoilCoolingFourPipeBeam")
     cls = result["classes"][0]
-    setters = set(cls["setters"])
+    setters = _names(cls["setters"])
 
     # These setter names are confirmed in the Ruby API docs
     # Note: heating setters are on CoilHeatingFourPipeBeam, not Cooling
@@ -184,12 +189,30 @@ def test_ruby_python_method_parity_spot_check():
         assert m in setters, f"Expected Ruby-parity setter '{m}' not found"
 
 
+# ── Signatures (params + return types) ───────────────────────────────────
+
+def test_methods_carry_signatures():
+    """Each method entry is 'name(params) -> ReturnType', not a bare name."""
+    search = _import_search_api_op()
+    result = search("CoilCoolingFourPipeBeam")
+    cls = result["classes"][0]
+
+    setter = next(
+        s for s in cls["setters"]
+        if s.startswith("setBeamRatedCoolingCapacityperBeamLength(")
+    )
+    # Has a parameter and a rendered return type
+    assert "->" in setter
+    assert setter.split("(", 1)[1].split(")", 1)[0].strip(), "setter should take an arg"
+
+
 # ── MCP integration ─────────────────────────────────────────────────────
 
 def test_search_api_via_mcp():
     """search_api tool works through full MCP stack."""
     # Validates: search_api works through full MCP server stack
     import asyncio
+
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 

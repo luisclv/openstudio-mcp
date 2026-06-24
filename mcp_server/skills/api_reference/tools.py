@@ -12,16 +12,18 @@ def register(mcp):
         max_classes: int = 10,
         include_base: bool = False,
     ) -> dict:
-        """Look up OpenStudio SDK classes, setter methods, and getter methods.
+        """Look up OpenStudio SDK classes with full method signatures.
 
         IMPORTANT: call before writing measures that use SDK method calls.
         Introspects the live openstudio.model module to verify which methods
-        actually exist on a class. Prevents calling nonexistent methods like
-        setRatedCoolingCoefficientOfPerformance.
+        actually exist on a class, AND returns each method's full signature —
+        parameter names and return type — so you can write the call correctly.
+        Prevents both hallucinated method names (e.g.
+        setRatedCoolingCoefficientOfPerformance) and guessed argument lists.
 
         Use cases:
-          - "What setters does CoilCoolingFourPipeBeam have?"
-          - "Does BoilerHotWater have a setEfficiency method?"
+          - "What setters does CoilCoolingFourPipeBeam have, and what args?"
+          - "Does BoilerHotWater have a setEfficiency method? What does it take?"
           - "List all classes matching 'ChillerElectric'"
 
         Examples:
@@ -36,7 +38,8 @@ def register(mcp):
             max_classes: Max classes to return (default 10).
             include_base: Include inherited ModelObject methods (default False).
 
-        Returns setters, getters, and other methods grouped per class.
+        Returns setters, getters, and other methods grouped per class. Each entry
+        is a signature string, e.g. "setSurfaceType(surfaceType) -> Boolean".
         """
         return search_api_op(
             class_pattern,
